@@ -1,0 +1,8 @@
+const cron = require('node-cron');
+const newsAutomationService = require('./services/newsAutomationService');
+
+// Jalankan setiap hari jam 00:01 pagi
+cron.schedule('1 0 * * *', async () => {
+    console.log('Sistem: Menjalankan otomatisasi berita harian...');
+    await newsAutomationService.generateDailyEvent();
+});
