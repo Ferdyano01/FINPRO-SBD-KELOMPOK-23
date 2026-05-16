@@ -71,6 +71,15 @@ Log aktivitas ekonomi pemain untuk mencegah kecurangan (*anti-cheat log*).
 * `cost_amount` (DECIMAL)
 * `created_at` (TIMESTAMP)
 
+<img width="527" height="368" alt="Screenshot 2026-05-16 222847" src="https://github.com/user-attachments/assets/c0465089-c222-4961-acf1-5f490c69964a" />
+<img width="212" height="406" alt="Screenshot 2026-05-16 223248" src="https://github.com/user-attachments/assets/a2ee7613-ecd3-47a6-a933-f0291829753b" />
+<img width="450" height="253" alt="Screenshot 2026-05-16 224507" src="https://github.com/user-attachments/assets/241a9034-702f-4c1e-9d61-82429ba52fb0" />
+
+
+
+
+
+
 ---
 
 ## 4. Implementasi Database In-Memory (Redis)
@@ -79,6 +88,7 @@ Log aktivitas ekonomi pemain untuk mencegah kecurangan (*anti-cheat log*).
 3. **Session & Rate Limiting:** Mengamankan *endpoint* API Express.js agar pemain tidak memanipulasi *request* HTTP (contoh: melakukan *spam click* klaim sumber daya dari klien modifikasi).
 
 ---
+
 
 ## 5. Pembagian Tugas Kelompok (SOP Compliant)
 ### Anggota 1: (Ketua & Lead Backend/Database)
