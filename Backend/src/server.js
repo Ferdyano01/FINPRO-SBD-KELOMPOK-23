@@ -9,7 +9,8 @@ const startServer = async () => {
         // 1. Inisialisasi koneksi ke PostgreSQL
         await db.connectDB();
 
-        // 2. TODO (Pilar 3): await redis.connect();
+        // 2. TODO (Pilar 3): 
+        await redis.connect();
 
         // 3. Jalankan server Express
         app.listen(PORT, () => {
