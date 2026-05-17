@@ -72,19 +72,13 @@ Log aktivitas ekonomi pemain untuk mencegah kecurangan (*anti-cheat log*).
 * `created_at` (TIMESTAMP)
 
 ERD
-<img width="527" height="368" alt="Screenshot 2026-05-16 222847" src="https://github.com/user-attachments/assets/c0465089-c222-4961-acf1-5f490c69964a" />
+<img width="893" height="650" alt="Screenshot 2026-05-17 183843" src="https://github.com/user-attachments/assets/1cf6c4bf-ef9a-4aad-afd6-36247e0b08c8" />
 
 Flowchart
-<img width="212" height="406" alt="Screenshot 2026-05-16 223248" src="https://github.com/user-attachments/assets/a2ee7613-ecd3-47a6-a933-f0291829753b" />
+<img width="561" height="958" alt="Screenshot 2026-05-17 184658" src="https://github.com/user-attachments/assets/1a5fb162-46b2-446b-bf65-a6ba1ab8eecc" />
 
 UML
-<img width="450" height="253" alt="Screenshot 2026-05-16 224507" src="https://github.com/user-attachments/assets/241a9034-702f-4c1e-9d61-82429ba52fb0" />
-
-
-
-
-
-
+<img width="973" height="961" alt="Screenshot 2026-05-17 184738" src="https://github.com/user-attachments/assets/666ffc15-aa7b-494d-89f7-c7cc7b4df8d7" />
 ---
 
 ## 4. Implementasi Database In-Memory (Redis)
