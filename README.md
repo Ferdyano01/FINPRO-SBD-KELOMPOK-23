@@ -1,122 +1,412 @@
-# FINPRO SBD KELOMPOK 23: "TODAY" - NEWS WEB & RESOURCE GAME
+# 📰 TODAY — News Web & Resource Game
+### FINPRO SBD Kelompok 23
 
-## 1. Deskripsi Sistem
-Aplikasi "Today" adalah sebuah platform interaktif yang menggabungkan portal berita harian (*News Web*) dengan elemen simulasi manajemen sumber daya (*Resource Game*). Dalam game ini, pemain memiliki "kota" atau "perusahaan" virtual dan harus mengelola produksi berbagai sumber daya (seperti *Gold*, *Energy*, *Material*, atau *Tech Parts*). 
-
-Nilai jual utama dari sistem ini adalah **Dynamic News with Gamification**. Setiap harinya, platform akan merilis berita dunia nyata untuk tujuan edukasi dan informasi yang dikemas ke dalam mekanik *gameplay*. Berita ini secara langsung mempengaruhi *rate* produksi sumber daya pemain. Misalnya: berita "Krisis Energi Global" akan menurunkan produksi *Energy* sebesar 20%, sementara berita "Inovasi Teknologi Baru" akan mem-*boost* produksi *Tech Parts*. Dengan gamifikasi ini, pemain tidak hanya sekadar membaca berita, tetapi didorong untuk memahami situasi terkini guna merancang strategi alokasi sumber daya dan pembangunan infrastruktur yang optimal di dalam game.
+> Platform interaktif yang menggabungkan portal berita harian dengan simulasi manajemen sumber daya berbasis gamifikasi.
 
 ---
 
-## 2. Implementasi Teknologi & Arsitektur
-Sistem ini memisahkan antara klien *game* visual dan arsitektur *backend* server:
+## 📖 Deskripsi Singkat
 
-* **Frontend / Client-Side (Godot Engine):**
-    * Menggunakan **Godot Engine** (dengan GDScript) untuk membangun klien *game*. Godot memberikan keleluasaan dalam menciptakan elemen gamifikasi seperti UI interaktif, *dashboard* manajemen kota, animasi, dan *feedback* visual.
-    * Integrasi data dilakukan menggunakan node `HTTPRequest` pada Godot untuk melakukan pemanggilan REST API ke *backend* secara asinkron (mengambil data pemain, berita harian, dan sinkronisasi sumber daya).
-* **API & Backend (Node.js & Express.js):**
-    * **Express.js** digunakan sebagai *backend framework* untuk memproses logika bisnis pusat, seperti registrasi pemain, kalkulasi *multiplier* produksi berdasarkan berita yang aktif, dan validasi transaksi *in-game*.
-* **Database Relasional (PostgreSQL):**
-    * Sebagai *Single Source of Truth* untuk menyimpan data pemain, inventaris sumber daya, infrastruktur bangunan, dan riwayat berita. Memenuhi standar wajib praktikum SBD untuk implementasi RDBMS.
-* **Database In-Memory (Redis):**
-    * Digunakan untuk mengelola *caching* berita harian yang sedang aktif beserta efek *multiplier*-nya, serta untuk *Global Leaderboard*. Ini meminimalisir beban *query* berat ke PostgreSQL karena *backend* harus melayani permintaan status sumber daya dari klien Godot secara terus-menerus.
-* **Deployment:**
-    * Klien **Godot** dapat di-*export* ke format HTML5/WebAssembly dan di-*host* di Vercel atau GitHub Pages agar dapat dimainkan langsung di *browser*.
-    * *Backend* (Node.js) dan *Database* di-*host* melalui layanan *cloud* seperti Railway, Render, atau Supabase bahkan *Cloudinary* jika perlu.
+**TODAY** adalah aplikasi web game di mana pemain mengelola produksi sumber daya virtual (Gold, Energy, Material, Tech) milik "kota" atau "perusahaan" mereka. Setiap hari, berita dunia nyata dirilis dan secara langsung memengaruhi *rate* produksi sumber daya pemain — mendorong pemain untuk memahami situasi terkini dan merancang strategi yang optimal.
 
 ---
 
-## 3. Skenario Database Utama (PostgreSQL)
-### A. Tabel `users`
-Menyimpan identitas pemain dan progres permainan mereka.
-* `id` (UUID, Primary Key)
-* `username` (VARCHAR, Unique)
-* `email` (VARCHAR, Unique)
-* `password_hash` (VARCHAR)
-* `level` (INTEGER) -> Level atau reputasi pemain.
-* `created_at` (TIMESTAMP)
+## 🛠️ Tech Stack
 
-### B. Tabel `resources`
-Menyimpan inventaris sumber daya yang dimiliki oleh setiap pemain.
-* `id` (UUID, Primary Key)
-* `user_id` (UUID, Foreign Key ke `users`)
-* `resource_type` (VARCHAR) -> Contoh: `ENERGY`, `MATERIAL`, `GOLD`, `TECH`.
-* `amount` (DECIMAL) -> Jumlah yang dimiliki saat ini (disinkronisasi dengan server).
-* `base_production_rate` (DECIMAL) -> Rate produksi dasar per jam.
-* **Unique Constraint:** (`user_id`, `resource_type`)
-
-### C. Tabel `news`
-Menyimpan daftar berita yang menjadi inti mekanik gamifikasi.
-* `id` (UUID, Primary Key)
-* `title` (VARCHAR)
-* `content` (TEXT) -> Isi berita edukasi/informasi aktual.
-* `affected_resource` (VARCHAR) -> Sumber daya apa yang terkena dampak.
-* `effect_type` (VARCHAR) -> `BUFF` (Positif) atau `DEBUFF` (Negatif).
-* `multiplier` (DECIMAL) -> Faktor pengali (contoh: 1.2 untuk +20%, 0.8 untuk -20%).
-* `active_date` (DATE) -> Tanggal berita tersebut berlaku di dalam ekosistem game.
-* `created_at` (TIMESTAMP)
-
-### D. Tabel `buildings`
-Menyimpan infrastruktur yang dibangun pemain untuk meningkatkan kapasitas/produksi.
-* `id` (UUID, Primary Key)
-* `user_id` (UUID, Foreign Key ke `users`)
-* `building_type` (VARCHAR) -> Contoh: `POWER_PLANT`, `LABORATORY`.
-* `level` (INTEGER)
-* `status` (VARCHAR) -> `ACTIVE`, `UPGRADING`.
-
-### E. Tabel `transactions_log`
-Log aktivitas ekonomi pemain untuk mencegah kecurangan (*anti-cheat log*).
-* `id` (UUID, Primary Key)
-* `user_id` (UUID, Foreign Key ke `users`)
-* `action_type` (VARCHAR) -> `UPGRADE_BUILDING`, `SELL_RESOURCE`, `CLAIM_REWARD`.
-* `cost_amount` (DECIMAL)
-* `created_at` (TIMESTAMP)
----
-ERD
-
-<img width="913" height="645" alt="Screenshot 2026-05-17 185131" src="https://github.com/user-attachments/assets/61a16b29-d8fb-4615-9dcb-533d719b854e" />
-
----
-Flowchart
-
-<img width="561" height="958" alt="Screenshot 2026-05-17 184658" src="https://github.com/user-attachments/assets/1a5fb162-46b2-446b-bf65-a6ba1ab8eecc" />
-
----
-UML
-
-<img width="973" height="961" alt="Screenshot 2026-05-17 184738" src="https://github.com/user-attachments/assets/666ffc15-aa7b-494d-89f7-c7cc7b4df8d7" />
+| Layer | Teknologi |
+|---|---|
+| Game Client | Godot Engine (GDScript) |
+| Backend | Node.js + Express.js v5 |
+| Database Utama | PostgreSQL via Supabase |
+| Database Cache | Redis |
+| Auth | JWT + bcrypt |
+| Security | Helmet + express-rate-limit |
+| Deployment Client | Vercel / GitHub Pages (HTML5 Export) |
+| Deployment Backend | Railway / Render |
 
 ---
 
-## 4. Implementasi Database In-Memory (Redis)
-1. **Daily News & Multiplier Cache:** Berita harian dan nilai *multiplier* efeknya di-*cache* di Redis. Saat *backend* merespons *request* dari Godot untuk menghitung pembaruan sumber daya, sistem membaca nilai pengali secara instan dari Redis, menghindari *bottleneck* kueri di PostgreSQL.
-2. **Global Leaderboard:** Redis tipe *Sorted Sets* digunakan untuk menyimpan *ranking* pemain berdasarkan total *Net Worth* secara *real-time*, yang akan ditarik oleh klien Godot untuk ditampilkan di UI papan peringkat.
-3. **Session & Rate Limiting:** Mengamankan *endpoint* API Express.js agar pemain tidak memanipulasi *request* HTTP (contoh: melakukan *spam click* klaim sumber daya dari klien modifikasi).
+## 📁 Struktur Folder
+
+```
+FINPRO-SBD-KELOMPOK-23/
+├── Backend/
+│   ├── database/
+│   │   ├── init.sql          # DDL: membuat semua tabel
+│   │   └── seed.sql          # DML: data dummy awal
+│   ├── src/
+│   │   ├── config/
+│   │   │   ├── database.js   # Koneksi PostgreSQL
+│   │   │   └── redis.js      # Koneksi Redis
+│   │   ├── controllers/
+│   │   │   ├── authController.js
+│   │   │   ├── craftingController.js
+│   │   │   ├── leaderboardController.js
+│   │   │   ├── newsController.js
+│   │   │   ├── resourceController.js
+│   │   │   └── workerController.js
+│   │   ├── middlewares/
+│   │   │   └── authMiddleware.js
+│   │   ├── models/
+│   │   │   ├── newsModel.js
+│   │   │   ├── resourceModel.js
+│   │   │   └── userModel.js
+│   │   ├── routes/
+│   │   │   ├── authRoutes.js
+│   │   │   ├── craftingRoutes.js
+│   │   │   ├── leaderboardRoutes.js
+│   │   │   ├── newsRoutes.js
+│   │   │   ├── resourceRoutes.js
+│   │   │   └── workerRoutes.js
+│   │   ├── services/
+│   │   │   ├── leaderboardService.js
+│   │   │   ├── newsAutomationService.js
+│   │   │   ├── newsService.js
+│   │   │   └── resourceService.js
+│   │   ├── utils/
+│   │   │   └── newsFetcher.js
+│   │   ├── app.js
+│   │   └── server.js
+│   ├── .env                  # (tidak di-commit, lihat bagian Konfigurasi)
+│   ├── .gitignore
+│   ├── package.json
+│   └── vercel-cron.txt
+├── Frontend/                 # Hasil export Godot → HTML5 (siap deploy)
+│   ├── Finpro-SBD.html       # Entry point game
+│   ├── Finpro-SBD.js         # Engine runtime
+│   ├── Finpro-SBD.wasm       # WebAssembly binary
+│   ├── Finpro-SBD.pck        # Asset pack game
+│   ├── Finpro-SBD.png        # Splash screen
+│   ├── Finpro-SBD.icon.png
+│   ├── Finpro-SBD.apple-touch-icon.png
+│   └── Finpro-SBD.audio.worklet.js
+└── README.md
+```
 
 ---
 
+## ⚙️ Konfigurasi Environment Variables
 
-## 5. Pembagian Tugas Kelompok (SOP Compliant)
-### Anggota 1: (Ketua & Lead Backend/Database)
-* **Tugas Teknis:** Merancang struktur tabel PostgreSQL (DDL/DML) dan mengembangkan REST API dengan Express.js untuk logika *Resource Production*, sistem autentikasi, serta pendistribusian *News Effect*.
-* **Tugas Administratif:** 
-    * Membuat repositori GitHub kelompok, merapikan struktur, dan mengundang asisten/mentor.
-    * Bertanggung jawab mengekspor database PostgreSQL menjadi `export.sql` beserta *dummy data*.
-    * Melakukan manajemen versi (*Git flow*) antara sistem API dan klien game.
+Buat file `.env` di dalam folder `Backend/` dan isi dengan nilai berikut:
 
-### Anggota 2: (Lead Game & UI Developer)
-* **Tugas Teknis:** Mengembangkan antarmuka game dan elemen visual menggunakan **Godot Engine**. Membangun halaman visualisasi kota, *dashboard* gamifikasi berita, animasi UI, dan *scripting* GDScript untuk komunikasi HTTP ke *backend*.
-* **Tugas Administratif:** 
-    * Memastikan *project* Godot tertata rapi (*scene management*, *script organization*) yang memenuhi 10% nilai kualitas kode.
-    * Melakukan integrasi antara *client* Godot dengan REST API Node.js.
+```env
+# Supabase
+SUPABASE_URL=https://xxxxxxxxxxxx.supabase.co
+SUPABASE_ANON_KEY=your_supabase_anon_key
 
-### Anggota 3: (System Analyst & Technical Documentation)
-* **Tugas Teknis:** Menulis narasi konten berita (*news copy*), merancang mekanisme *balance* permainan gamifikasi (nilai *base rate* dan *multiplier*), serta menyusun spesifikasi API untuk konsumsi Godot.
-* **Tugas Administratif:**
-    * Membuat Skenario Database dan Aplikasi: **UML**, **Flowchart**, dan **ERD**.
-    * Menyusun file `ReadMe.md` lengkap di GitHub (instruksi *setup* Node.js, cara impor *project* ke editor Godot, dsb).
+# PostgreSQL (Direct Connection)
+DATABASE_URL=postgresql://user:password@host:port/database
+PG_USER=postgres
+PG_HOST=db.xxxxxxxxxxxx.supabase.co
+PG_DATABASE=postgres
+PG_PASSWORD=your_pg_password
+PG_PORT=5432
 
-### Anggota 4: (Project Manager & DevOps/QA)
-* **Tugas Teknis:** Melakukan *setup* Redis, melakukan *Export & Deployment* aplikasi (ekspor Godot ke Web/HTML5 di Vercel, *deploy backend* ke *cloud*), dan pengujian (QA) fungsionalitas komunikasi *Client-Server*.
-* **Tugas Administratif:**
-    * Membuat presentasi (**PPT Laporan**) untuk demo akhir.
-    * Menjadwalkan **Progress Report** dengan mentor (minimal 2 kali) dan mengumpulkan dokumentasi/notulensinya.
+# Redis
+REDIS_URL=redis://default:password@host:port
+
+# Auth
+JWT_SECRET=your_jwt_secret_key_min_32_chars
+
+# News API
+NEWS_API_KEY=your_newsapi_key
+
+# App
+NODE_ENV=development
+```
+
+> ⚠️ Jangan pernah commit file `.env` ke GitHub. Pastikan `.env` sudah ada di `.gitignore`.
+
+---
+
+## 🚀 Setup & Menjalankan Backend
+
+### Prasyarat
+- Node.js v18 atau lebih baru
+- npm v9 atau lebih baru
+- Akun [Supabase](https://supabase.com) (sudah dibuat oleh Ketua)
+- Akun [Redis Cloud](https://redis.io/cloud) atau Upstash (sudah di-setup oleh Anggota 4)
+
+### Langkah Instalasi
+
+**1. Clone repositori**
+```bash
+git clone https://github.com/Ferdyano01/FINPRO-SBD-KELOMPOK-23.git
+cd FINPRO-SBD-KELOMPOK-23/Backend
+```
+
+**2. Install dependencies**
+```bash
+npm install
+```
+
+**3. Konfigurasi `.env`**
+
+Salin template di atas ke file `.env` dan isi nilainya.
+
+**4. Setup database**
+
+Jalankan script SQL berikut di Supabase SQL Editor (atau psql):
+```bash
+# Buat tabel (DDL)
+psql $DATABASE_URL -f database/init.sql
+
+# Isi data dummy (opsional)
+psql $DATABASE_URL -f database/seed.sql
+```
+
+**5. Jalankan server**
+```bash
+# Mode development (auto-restart)
+npm run dev
+
+# Mode production
+npm start
+```
+
+Server berjalan di: `http://localhost:3000`
+
+---
+
+## 📡 API Endpoints
+
+Base URL production: `https://your-backend.railway.app`  
+Base URL local: `http://localhost:3000`
+
+> 🔒 Endpoint bertanda **[Auth]** memerlukan header: `Authorization: Bearer <token>`
+
+### 🔑 Authentication
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| POST | `/api/auth/register` | Daftar akun baru |
+| POST | `/api/auth/login` | Login dan dapatkan JWT token |
+
+**POST `/api/auth/register`**
+```json
+// Request Body
+{
+  "username": "player123",
+  "email": "player@example.com",
+  "password": "password123"
+}
+
+// Response 201
+{
+  "message": "Registrasi berhasil",
+  "user": { "id": "uuid", "username": "player123" }
+}
+```
+
+**POST `/api/auth/login`**
+```json
+// Request Body
+{
+  "email": "player@example.com",
+  "password": "password123"
+}
+
+// Response 200
+{
+  "token": "eyJhbGciOiJIUzI1NiIs...",
+  "user": { "id": "uuid", "username": "player123" }
+}
+```
+
+---
+
+### 💰 Resource
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| GET | `/api/resources/:userId` | **[Auth]** Ambil snapshot resource pemain |
+| POST | `/api/resources/sync` | **[Auth]** Sinkronisasi & kalkulasi produksi |
+| POST | `/api/resources/sell` | **[Auth]** Jual resource |
+
+**GET `/api/resources/:userId`**
+```json
+// Response 200
+{
+  "resources": [
+    { "resource_type": "GOLD", "amount": 1250.5, "base_production_rate": 50 },
+    { "resource_type": "ENERGY", "amount": 840.0, "base_production_rate": 80 }
+  ]
+}
+```
+
+**POST `/api/resources/sync`**
+```json
+// Request Body
+{ "userId": "uuid" }
+
+// Response 200
+{
+  "message": "Resource berhasil disinkronisasi",
+  "updated": [
+    { "resource_type": "GOLD", "amount": 1300.5 }
+  ]
+}
+```
+
+---
+
+### 📰 News
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| GET | `/api/news/today` | Ambil berita aktif hari ini beserta multiplier |
+| GET | `/api/news` | Ambil semua riwayat berita |
+| POST | `/api/news` | **[Auth/Admin]** Tambah berita baru |
+
+---
+
+### 🏆 Leaderboard
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| GET | `/api/leaderboard` | Ambil ranking pemain (dari Redis) |
+
+---
+
+### ⚒️ Crafting & Worker
+
+| Method | Endpoint | Deskripsi |
+|---|---|---|
+| POST | `/api/crafting` | **[Auth]** Craft item dari resource |
+| GET | `/api/worker` | **[Auth]** Lihat status worker |
+| POST | `/api/worker` | **[Auth]** Assign worker |
+
+---
+
+## 🗄️ Skema Database (PostgreSQL)
+
+### Tabel `users`
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | UUID | Primary Key |
+| username | VARCHAR | Unique |
+| email | VARCHAR | Unique |
+| password_hash | VARCHAR | — |
+| level | INTEGER | Reputasi pemain |
+| created_at | TIMESTAMP | — |
+
+### Tabel `resources`
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | UUID | Primary Key |
+| user_id | UUID | FK → users |
+| resource_type | VARCHAR | GOLD / ENERGY / MATERIAL / TECH |
+| amount | DECIMAL | Jumlah saat ini |
+| base_production_rate | DECIMAL | Unit per jam |
+
+> Unique constraint: (`user_id`, `resource_type`)
+
+### Tabel `news`
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | UUID | Primary Key |
+| title | VARCHAR | Judul berita |
+| content | TEXT | Isi berita |
+| affected_resource | VARCHAR | Resource yang terdampak |
+| effect_type | VARCHAR | BUFF atau DEBUFF |
+| multiplier | DECIMAL | Contoh: 1.2 = +20%, 0.8 = -20% |
+| active_date | DATE | Tanggal berlaku |
+| created_at | TIMESTAMP | — |
+
+### Tabel `news_effects_log`
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | UUID | Primary Key |
+| user_id | UUID | FK → users |
+| news_id | UUID | FK → news |
+| applied_at | TIMESTAMP | Waktu efek diterapkan |
+
+### Tabel `transactions_log`
+| Kolom | Tipe | Keterangan |
+|---|---|---|
+| id | UUID | Primary Key |
+| user_id | UUID | FK → users |
+| action_type | VARCHAR | SELL_RESOURCE / CLAIM_REWARD |
+| resource_type | VARCHAR | — |
+| cost_amount | DECIMAL | — |
+| gain_amount | DECIMAL | — |
+| created_at | TIMESTAMP | — |
+
+---
+
+## 🎮 Menjalankan Game Client
+
+Game sudah di-export ke format **HTML5/WebAssembly** dan tersedia di folder `Frontend/`. Tidak perlu menginstall Godot Engine untuk memainkannya.
+
+### Cara 1 — Akses Online (Direkomendasikan)
+Buka URL deployment yang sudah disediakan oleh Anggota 4:
+> 🔗 **(https://frontend-finpro-sbd-kelompok-23.vercel.app/)**
+
+### Cara 2 — Jalankan Lokal
+Karena file `.wasm` memerlukan server HTTP (tidak bisa dibuka langsung sebagai file), gunakan salah satu cara berikut:
+
+**Menggunakan Node.js (`serve`):**
+```bash
+npx serve Frontend/
+# Buka http://localhost:3000
+```
+
+**Menggunakan Python:**
+```bash
+cd Frontend
+python -m http.server 8080
+# Buka http://localhost:8080
+```
+
+**Menggunakan ekstensi VS Code:**
+- Install ekstensi **Live Server**
+- Klik kanan `Frontend/Finpro-SBD.html` → **Open with Live Server**
+
+> ⚠️ Pastikan backend sudah berjalan (lokal atau production) agar game dapat terhubung ke API.
+
+---
+
+## 🔴 Implementasi Redis
+
+| Kegunaan | Tipe Data | Key Pattern |
+|---|---|---|
+| Cache berita harian | String (JSON) | `news:today` |
+| Multiplier aktif | String | `multiplier:{resource_type}` |
+| Global Leaderboard | Sorted Set | `leaderboard:global` |
+| Session / Rate Limit | String | `session:{userId}` |
+
+---
+
+## 📊 Diagram Sistem
+
+### ERD
+![Screenshot 2026-05-17 185131](https://hackmd.io/_uploads/B15u4Pwkfl.png)
+
+
+### UML Use Case
+![Screenshot 2026-05-17 184738](https://hackmd.io/_uploads/r1g0ONvvyGl.png)
+
+
+### Flowchart Kalkulasi Produksi
+![Screenshot 2026-05-17 184658](https://hackmd.io/_uploads/Bk-tEvv1Mg.png)
+
+
+---
+
+## 👥 Tim Pengembang — Kelompok 23
+
+| Anggota | Peran | Tanggung Jawab |
+|---|---|---|
+| Anggota 1 | Ketua & Lead Backend | PostgreSQL DDL/DML, REST API, autentikasi, Git flow |
+| Anggota 2 | Lead Game & UI | Godot Engine, GDScript, integrasi client-server |
+| Anggota 3 | System Analyst & Docs | UML, ERD, Flowchart, konten berita, balance game, README |
+| Anggota 4 | Project Manager & DevOps | Setup Redis, deployment, QA, laporan PPT |
+
+---
+
+## 📝 Catatan Pengembangan
+
+- Pastikan backend sudah berjalan sebelum membuka Godot client
+- File `init.sql` harus dijalankan **sekali** saat pertama setup — jangan dijalankan ulang jika data sudah ada
+- JWT token berlaku selama **1 jam** — client Godot perlu handle refresh token atau re-login
+- Rate limiter aktif di semua endpoint — jangan lakukan request berulang dalam waktu singkat saat testing
