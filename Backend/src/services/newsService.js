@@ -1,35 +1,52 @@
-const NewsModel = require('../models/newsModel');
-const redis = require('../config/redis'); // Asumsi konfigurasi redis sudah ada
+// src/services/newsService.js
+const { supabase } = require('../config/database');
 
 const NewsService = {
-    /**
-     * Mengambil berita aktif hari ini dengan sistem Caching
-     */
-    getTodaysNews: async () => {
-        const cacheKey = `news:${new Date().toISOString().split('T')[0]}`;
+  // Data berita dari dokumen balance_game_news_content.html
+  events: [
+    { title: "Krisis energi melanda Eropa", resource: "ENERGY", type: "DEBUFF", mult: 0.7 },
+    { title: "Terobosan panel surya baru", resource: "ENERGY", type: "BUFF", mult: 1.4 },
+    { title: "Harga emas menyentuh rekor", resource: "GOLD", type: "BUFF", mult: 1.5 },
+    { title: "Resesi ekonomi mengancam", resource: "GOLD", type: "DEBUFF", mult: 0.6 },
+    { title: "Penemuan deposit mineral", resource: "MATERIAL", type: "BUFF", mult: 1.6 },
+    { title: "AI percepat riset sains", resource: "TECH", type: "BUFF", mult: 2.0 },
+    { title: "Serangan siber massal", resource: "TECH", type: "DEBUFF", mult: 0.55 },
+    { title: "Chip 2nm produksi massal", resource: "TECH", type: "BUFF", mult: 1.7 }
+  ],
 
-        try {
-            // 1. Cek di Redis dulu (Database In-Memory)
-            const cachedNews = await redis.get(cacheKey);
-            if (cachedNews) {
-                return JSON.parse(cachedNews);
-            }
+  generateDailyNews: async () => {
+    const today = new Date().toISOString().split('T')[0];
+    
+    // Cek apakah hari ini sudah ada berita
+    const { data: existingNews } = await supabase
+      .from('news')
+      .select('*')
+      .eq('active_date', today)
+      .eq('is_active', true)
+      .single();
 
-            // 2. Jika tidak ada di Redis, ambil dari PostgreSQL
-            const news = await NewsModel.getActiveNews();
+    if (existingNews) return existingNews;
 
-            // 3. Simpan ke Redis selama 24 jam jika berita ditemukan
-            if (news) {
-                await redis.set(cacheKey, JSON.stringify(news), 'EX', 86400);
-            }
+    // Jika belum ada, pilih secara acak dari database dummy
+    const randomEvent = NewsService.events[Math.floor(Math.random() * NewsService.events.length)];
 
-            return news;
-        } catch (error) {
-            console.error("NewsService Error:", error);
-            // Fallback: jika Redis error, tetap ambil dari DB
-            return await NewsModel.getActiveNews();
-        }
-    }
+    const { data: insertedNews, error } = await supabase
+      .from('news')
+      .insert([{
+        title: randomEvent.title,
+        content: "Berita ekonomi global hari ini memengaruhi sektor " + randomEvent.resource,
+        affected_resource: randomEvent.resource,
+        effect_type: randomEvent.type,
+        multiplier: randomEvent.mult,
+        active_date: today,
+        is_active: true
+      }])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return insertedNews;
+  }
 };
 
 module.exports = NewsService;

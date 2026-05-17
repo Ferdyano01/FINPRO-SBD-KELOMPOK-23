@@ -46,8 +46,7 @@ const connectDB = async () => {
 
 // Mengekspor fungsi query agar bisa dipakai oleh file di folder models/
 module.exports = {
-    query: (text, params) => pool.query(text, params),
-    connectDB
+    supabase,                                   // Untuk operasi CRUD SDK
+    query: (text, params) => pool.query(text, params), // Untuk query SQL mentah
+    connectDB                                   // Untuk test koneksi di server.js
 };
-
-module.exports = supabase;

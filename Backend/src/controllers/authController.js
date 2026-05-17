@@ -1,80 +1,93 @@
-const UserModel = require('../models/user.model.js');
+const UserModel = require('../models/userModel.js');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
+const { supabase } = require('../config/database');
 
 const AuthController = {
-    /**
-     * Mendaftarkan pemain baru
-     */
     register: async (req, res) => {
         try {
-            const { username, email, password } = req.body;
+            // Kita hanya ambil username dan password dari body (Godot)
+            const { username, password } = req.body;
 
-            // Validasi input dasar
-            if (!username || !email || !password) {
+            if (!username || !password) {
                 return res.status(400).json({ success: false, message: "Data tidak lengkap." });
             }
 
-            // Hashing password (keamanan sesuai standar industri)
+            // OTOMATIS: Buat format email dari username
+            const email = `${username.toLowerCase()}@game.com`;
+
+            const userRegex = /^[a-zA-Z0-9_]{3,15}$/;
+            if (!userRegex.test(username)) {
+                return res.status(400).json({ 
+                    success: false, 
+                    message: "Username minimal 3-15 karakter, tanpa spasi/simbol." 
+                });
+            }
+
             const saltRounds = 10;
             const passwordHash = await bcrypt.hash(password, saltRounds);
 
-            // Simpan ke database melalui model
+            // Simpan ke database (email otomatis terisi)
             const newUser = await UserModel.create(username, email, passwordHash);
 
             return res.status(201).json({
                 success: true,
                 message: "Registrasi berhasil!",
-                data: { id: newUser.id, username: newUser.username }
+                user: { id: newUser.id, username: newUser.username }
             });
         } catch (error) {
             console.error("Register Error:", error);
-            return res.status(500).json({ success: false, message: "Email atau Username sudah digunakan." });
+            return res.status(500).json({ success: false, message: "Username sudah ada atau Server Error." });
         }
     },
 
-    /**
-     * Proses Login Pemain
-     */
-    login: async (req, res) => {
-        try {
-            const { email, password } = req.body;
-            const supabase = require('../config/db');
+    // src/controllers/authController.js
 
-            // Cari user berdasarkan email
-            const { data: user, error } = await supabase
-                .from('users')
-                .select('*')
-                .eq('email', email)
-                .single();
+login: async (req, res) => {
+    try {
+        // Ambil username dari body (bukan email)
+        const { username, password } = req.body;
 
-            if (error || !user) {
-                return res.status(404).json({ success: false, message: "Pengguna tidak ditemukan." });
-            }
-
-            // Verifikasi password
-            const isMatch = await bcrypt.compare(password, user.password_hash);
-            if (!isMatch) {
-                return res.status(401).json({ success: false, message: "Kata sandi salah." });
-            }
-
-            // Buat Token JWT untuk sesi Godot
-            const token = jwt.sign(
-                { id: user.id, username: user.username },
-                process.env.JWT_SECRET || 'secret_key_game_today',
-                { expiresIn: '24h' }
-            );
-
-            return res.status(200).json({
-                success: true,
-                message: "Login berhasil!",
-                token,
-                user: { id: user.id, username: user.username }
-            });
-        } catch (error) {
-            return res.status(500).json({ success: false, message: error.message });
+        if (!username || !password) {
+            return res.status(400).json({ success: false, message: "Username dan password wajib diisi." });
         }
+
+        // SINKRONISASI: Format ulang username menjadi email seperti saat Register
+        const email = `${username.toLowerCase()}@game.com`;
+
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('*')
+            .eq('email', email)
+            .single();
+
+        if (error || !user) {
+            // Jika user tidak ada, kemungkinan username salah
+            return res.status(404).json({ success: false, message: "Username tidak ditemukan." });
+        }
+
+        const isMatch = await bcrypt.compare(password, user.password_hash);
+        if (!isMatch) {
+            return res.status(401).json({ success: false, message: "Kata sandi salah." });
+        }
+
+        const token = jwt.sign(
+            { id: user.id, username: user.username },
+            process.env.JWT_SECRET || 'secret_key_game_today',
+            { expiresIn: '24h' }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Login berhasil!",
+            token,
+            user: { id: user.id, username: user.username }
+        });
+    } catch (error) {
+        console.error("Login Error:", error);
+        return res.status(500).json({ success: false, message: "Terjadi kesalahan pada server." });
     }
+}
 };
 
 module.exports = AuthController;

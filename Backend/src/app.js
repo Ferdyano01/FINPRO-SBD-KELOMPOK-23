@@ -6,8 +6,10 @@ require('dotenv').config();
 
 // Import Routes
 const resourceRoutes = require('./routes/resourceRoutes');
-const authRoutes = require('./routes/authRoutes'); // Aktifkan jika file sudah ada
-const newsRoutes = require('./routes/newsRoutes'); // Aktifkan jika file sudah ada
+const newsRoutes = require('./routes/newsRoutes');
+const leaderboardRouter = require('./routes/leaderboardRoutes');
+const workerRoutes = require('./routes/workerRoutes'); // TAMBAHKAN INI
+const craftingRoutes = require('./routes/craftingRoutes'); // TAMBAHKAN INI
 
 const app = express();
 
@@ -17,14 +19,12 @@ app.use(cors());   // Mengizinkan request dari klien Godot (Web/HTML5)
 app.use(express.json()); // Parsing JSON body
 
 // --- Routes Mapping ---
+app.use('/api/workers', workerRoutes);
+app.use('/api/crafting', craftingRoutes);
 app.use('/api/auth', authRoutes);
-
-// Route Utama untuk Game Resource (Sudah kita buat)
 app.use('/api/resources', resourceRoutes);
-
-// Placeholder untuk rute lainnya sesuai struktur folder
-app.use('/api/auth', authRoutes);
-app.use('/api/news', newsRoutes);
+app.use('/api/leaderboard', leaderboardRouter); // Prefix: /api/leaderboard
+app.use('/api/news', newsRoutes); // Prefix: /api/news
 
 // --- Basic Health Check Endpoint ---
 app.get('/api/health', (req, res) => {

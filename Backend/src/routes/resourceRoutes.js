@@ -7,9 +7,11 @@ const authMiddleware = require('../middlewares/authMiddleware');
 router.post('/sync', authMiddleware, ResourceController.syncResources);
 
 // Route untuk sinkronisasi (POST karena mengirimkan data userId/token)
-router.post('/sync', ResourceController.syncResources);
+router.post('/sync', authMiddleware, ResourceController.syncResources);
 
 // Route untuk mengambil data mentah (Snapshot)
-router.get('/:userId', ResourceController.getSnapshot);
+router.get('/:userId', authMiddleware, ResourceController.getSnapshot);
+
+router.post('/sell', authMiddleware, ResourceController.sellResource);
 
 module.exports = router;

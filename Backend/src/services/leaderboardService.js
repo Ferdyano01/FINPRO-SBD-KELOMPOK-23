@@ -1,35 +1,30 @@
-const redis = require('../config/redis');
-const UserModel = require('../models/user.model.js');
+const { client } = require('../config/redis'); 
 
 const LeaderboardService = {
-    /**
-     * Memperbarui skor pemain di Leaderboard
-     */
     updateScore: async (userId, username, netWorth) => {
-        const key = 'global_leaderboard';
-        // Simpan ke Redis: member adalah username, score adalah netWorth
-        // ZADD otomatis mengurutkan dari yang terkecil ke terbesar
-        // Setelah kalkulasi selesai
-        const totalNetWorth = updatedResources.reduce((acc, res) => acc + parseFloat(res.amount), 0);
-        await LeaderboardService.updateScore(userId, username, totalNetWorth);
-
-        await redis.client.zAdd(key, {
-            score: parseFloat(netWorth),
-            value: username
-        });
+        try {
+            const key = 'global_leaderboard';
+            // Panggil client langsung tanpa .client lagi
+            await client.zAdd(key, {
+                score: parseFloat(netWorth),
+                value: username
+            });
+        } catch (err) {
+            console.error("Redis Update Error:", err.message);
+        }
     },
 
-    /**
-     * Mengambil Top 10 Pemain
-     */
     getTopPlayers: async () => {
-        const key = 'global_leaderboard';
-        // Ambil urutan dari terbesar ke terkecil (Rank 1-10)
-        const topPlayers = await redis.client.zRangeWithScores(key, 0, 9, {
-            REV: true
-        });
-        
-        return topPlayers;
+        try {
+            const key = 'global_leaderboard';
+            const topPlayers = await client.zRangeWithScores(key, 0, 9, {
+                REV: true
+            });
+            return topPlayers;
+        } catch (err) {
+            console.error("Redis Get Error:", err.message);
+            return [];
+        }
     }
 };
 

@@ -1,4 +1,4 @@
-const ResourceModel = require('../models/resource.model.js');
+const ResourceModel = require('../models/resourceModel.js');
 const NewsModel = require('../models/newsModel');
 
 const ResourceService = {
