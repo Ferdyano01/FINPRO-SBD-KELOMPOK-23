@@ -70,15 +70,21 @@ Log aktivitas ekonomi pemain untuk mencegah kecurangan (*anti-cheat log*).
 * `action_type` (VARCHAR) -> `UPGRADE_BUILDING`, `SELL_RESOURCE`, `CLAIM_REWARD`.
 * `cost_amount` (DECIMAL)
 * `created_at` (TIMESTAMP)
-
+---
 ERD
-<img width="893" height="650" alt="Screenshot 2026-05-17 183843" src="https://github.com/user-attachments/assets/1cf6c4bf-ef9a-4aad-afd6-36247e0b08c8" />
 
+<img width="913" height="645" alt="Screenshot 2026-05-17 185131" src="https://github.com/user-attachments/assets/61a16b29-d8fb-4615-9dcb-533d719b854e" />
+
+---
 Flowchart
+
 <img width="561" height="958" alt="Screenshot 2026-05-17 184658" src="https://github.com/user-attachments/assets/1a5fb162-46b2-446b-bf65-a6ba1ab8eecc" />
 
+---
 UML
+
 <img width="973" height="961" alt="Screenshot 2026-05-17 184738" src="https://github.com/user-attachments/assets/666ffc15-aa7b-494d-89f7-c7cc7b4df8d7" />
+
 ---
 
 ## 4. Implementasi Database In-Memory (Redis)
