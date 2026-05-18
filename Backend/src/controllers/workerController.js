@@ -1,8 +1,19 @@
 const { supabase } = require('../config/database');
 
 exports.hireWorker = async (req, res) => {
-    const { userId, workerId } = req.body;
-    const workerKey = workerId.toUpperCase();
+    const authUserId = req.user && req.user.id;
+    const bodyUserId = req.body.userId;
+    if (authUserId && bodyUserId && String(authUserId) !== String(bodyUserId)) {
+        return res.status(403).json({ success: false, message: "User ID tidak valid untuk token ini." });
+    }
+
+    const userId = authUserId || bodyUserId;
+    const { workerId } = req.body;
+    if (!userId || !workerId) {
+        return res.status(400).json({ success: false, message: "User ID dan worker ID diperlukan." });
+    }
+
+    const workerKey = typeof workerId === 'string' ? workerId.toUpperCase() : '';
     
     // Database Worker tetap sama seperti kode Anda
     const workerDatabase = {
@@ -18,7 +29,14 @@ exports.hireWorker = async (req, res) => {
 
     try {
         // 1. Ambil semua resource user untuk validasi
-        const { data: userResources } = await supabase.from('resources').select('*').eq('user_id', userId);
+        const { data: userResources, error: fetchError } = await supabase
+            .from('resources')
+            .select('*')
+            .eq('user_id', userId);
+        if (fetchError) throw fetchError;
+        if (!userResources) {
+            return res.status(404).json({ success: false, message: "Data resource user tidak ditemukan." });
+        }
 
         // 2. Validasi Material (Looping pengecekan sebelum memotong)
         for (const [mat, reqQty] of Object.entries(worker.materials)) {

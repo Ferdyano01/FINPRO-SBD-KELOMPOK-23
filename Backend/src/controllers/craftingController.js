@@ -1,7 +1,17 @@
 const { supabase } = require('../config/database');
 
 exports.craftItem = async (req, res) => {
-    const { userId, itemId } = req.body;
+    const authUserId = req.user && req.user.id;
+    const bodyUserId = req.body.userId;
+    if (authUserId && bodyUserId && String(authUserId) !== String(bodyUserId)) {
+        return res.status(403).json({ success: false, message: "User ID tidak valid untuk token ini." });
+    }
+
+    const userId = authUserId || bodyUserId;
+    const { itemId } = req.body;
+    if (!userId || !itemId) {
+        return res.status(400).json({ success: false, message: "User ID dan item ID diperlukan." });
+    }
 
     // 1. Definisi Resep Crafting (Harus Sama dengan Global.gd)
     const craftDatabase = {
@@ -16,7 +26,7 @@ exports.craftItem = async (req, res) => {
         "COMPONENT": { price: 1000, materials: { "PCB": 1, "GEAR": 1 } }
     };
 
-    const itemKey = itemId.toUpperCase();
+    const itemKey = typeof itemId === 'string' ? itemId.toUpperCase() : '';
     const recipe = craftDatabase[itemKey];
 
     if (!recipe) {
@@ -53,25 +63,33 @@ exports.craftItem = async (req, res) => {
         // A. Kurangi Bahan Baku
         for (const mat in recipe.materials) {
             const newAmount = inventory[mat] - recipe.materials[mat];
-            await supabase.from('resources')
+            const { error: deductError } = await supabase.from('resources')
                 .update({ amount: newAmount })
                 .eq('user_id', userId)
                 .eq('resource_type', mat);
+            if (deductError) throw deductError;
         }
 
         // B. Tambah Item Hasil Crafting
         const currentItemAmount = inventory[itemKey] || 0;
-        const { error: addError } = await supabase.from('resources')
-        .update({ amount: currentItemAmount + 1 })
-        .eq('user_id', userId)
-        .eq('resource_type', itemKey); // itemKey sudah .toUpperCase()
-        if (addError) throw addError;
+        if (inventory[itemKey] !== undefined) {
+            const { error: addError } = await supabase.from('resources')
+                .update({ amount: currentItemAmount + 1 })
+                .eq('user_id', userId)
+                .eq('resource_type', itemKey); // itemKey sudah .toUpperCase()
+            if (addError) throw addError;
+        } else {
+            const { error: insertError } = await supabase.from('resources')
+                .insert([{ user_id: userId, resource_type: itemKey, amount: 1 }]);
+            if (insertError) throw insertError;
+        }
 
         // 5. Ambil data terbaru untuk sinkronisasi Godot
-        const { data: freshResources } = await supabase
+        const { data: freshResources, error: freshError } = await supabase
             .from('resources')
             .select('*')
             .eq('user_id', userId);
+        if (freshError) throw freshError;
 
         return res.status(200).json({ 
             success: true, 
@@ -80,7 +98,8 @@ exports.craftItem = async (req, res) => {
         });
 
     } catch (err) {
-        console.error("Crafting Error:", err.message);
+        const errMsg = err && err.message ? err.message : String(err);
+        console.error("Crafting Error:", errMsg);
         return res.status(500).json({ success: false, message: "Gagal memproses crafting." });
     }
 };

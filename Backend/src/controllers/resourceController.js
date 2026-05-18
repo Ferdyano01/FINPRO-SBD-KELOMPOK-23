@@ -9,8 +9,15 @@ const ResourceController = {
    */
   syncResources: async (req, res) => {
     try {
-      const userId = req.body.userId || req.user.id;
-      const username = req.user.username; // Ambil username dari token middleware
+      const authUser = req.user || {};
+      const authUserId = authUser.id;
+      const bodyUserId = req.body.userId;
+      if (authUserId && bodyUserId && String(authUserId) !== String(bodyUserId)) {
+        return res.status(403).json({ success: false, message: "User ID tidak valid untuk token ini." });
+      }
+
+      const userId = authUserId || bodyUserId;
+      const username = authUser.username || `user_${userId}`;
       if (!userId) return res.status(400).json({ success: false, message: "User ID diperlukan." });
 
       const activeNews = await NewsService.generateDailyNews();
@@ -25,17 +32,19 @@ const ResourceController = {
       const now = new Date();
       
       // Update semua resource ke database
-      for (let item of resources) {
+      for (const item of (resources || [])) {
         if (parseFloat(item.base_production_rate) > 0) {
-            const lastUpdate = new Date(item.updated_at);
-            const secondsPassed = Math.max(0, (now.getTime() - lastUpdate.getTime()) / 1000);
+            const lastUpdate = new Date(item.updated_at || item.created_at || now.toISOString());
+            const safeLastUpdateMs = Number.isNaN(lastUpdate.getTime()) ? now.getTime() : lastUpdate.getTime();
+            const secondsPassed = Math.max(0, (now.getTime() - safeLastUpdateMs) / 1000);
             
             // Debugging: Pastikan secondsPassed > 0
             //console.log(`Resource: ${item.resource_type}, Seconds Passed: ${secondsPassed}`);
     
             let multiplier = 1.0;
             if (activeNews && activeNews.affected_resource === item.resource_type) {
-                multiplier = parseFloat(activeNews.multiplier);
+              const parsedMultiplier = parseFloat(activeNews.multiplier);
+              multiplier = Number.isFinite(parsedMultiplier) ? parsedMultiplier : 1.0;
             }
     
             // Hitung gain (per jam)
@@ -52,17 +61,21 @@ const ResourceController = {
                 })
                 .eq('id', item.id);
     
-            if (updateError) console.error("Error updating resource:", updateError);
+            if (updateError) throw updateError;
         }
     }
 
       // Ambil data terbaru SETELAH update selesai
-      const { data: updated } = await supabase.from('resources').select('*').eq('user_id', userId);
+      const { data: updated, error: updatedError } = await supabase
+        .from('resources')
+        .select('*')
+        .eq('user_id', userId);
+      if (updatedError) throw updatedError;
 
       // --- LOGIKA LEADERBOARD: PANGGIL SEKALI SAJA DI SINI ---
-      const goldData = updated.find(r => r.resource_type === 'GOLD');
+      const goldData = (updated || []).find(r => r.resource_type === 'GOLD');
       if (goldData) {
-        await LeaderboardService.updateScore(userId, req.user.username, goldData.amount);
+        await LeaderboardService.updateScore(userId, username, goldData.amount);
       }
       
       return res.status(200).json({ 
@@ -80,7 +93,19 @@ const ResourceController = {
    * Endpoint untuk menjual resource (1 Unit per klik)
    */
   sellResource: async (req, res) => {
-    const { userId, itemId } = req.body;
+    const authUserId = req.user && req.user.id;
+    const bodyUserId = req.body.userId;
+    if (authUserId && bodyUserId && String(authUserId) !== String(bodyUserId)) {
+      return res.status(403).json({ success: false, message: "User ID tidak valid untuk token ini." });
+    }
+
+    const userId = authUserId || bodyUserId;
+    const { itemId } = req.body;
+    if (!userId || !itemId) {
+      return res.status(400).json({ success: false, message: "User ID dan item ID diperlukan." });
+    }
+
+    const itemKey = itemId.toUpperCase();
     const prices = { 
       "WOOD": 5, 
       "STONE": 10,
@@ -96,27 +121,36 @@ const ResourceController = {
       "COMPONENT": 1000,
       "HOUSE": 50000 
     };
-    const sellPrice = prices[itemId.toUpperCase()] || 1;
+      const sellPrice = prices[itemKey] || 1;
 
     try {
-        const { data: itemRes } = await supabase.from('resources')
-            .select('amount').eq('user_id', userId).eq('resource_type', itemId.toUpperCase()).single();
+        const { data: itemRes, error: itemError } = await supabase.from('resources')
+          .select('amount').eq('user_id', userId).eq('resource_type', itemKey).single();
+        if (itemError) throw itemError;
 
         if (!itemRes || parseFloat(itemRes.amount) < 1) {
             return res.status(400).json({ success: false, message: "Barang tidak cukup!" });
         }
 
         // Kurangi 1 barang & Tambah Gold
-        await supabase.from('resources').update({ amount: parseFloat(itemRes.amount) - 1 })
-            .eq('user_id', userId).eq('resource_type', itemId.toUpperCase());
+        const { error: sellUpdateError } = await supabase.from('resources').update({ amount: parseFloat(itemRes.amount) - 1 })
+          .eq('user_id', userId).eq('resource_type', itemKey);
+        if (sellUpdateError) throw sellUpdateError;
 
-        const { data: goldRes } = await supabase.from('resources')
+        const { data: goldRes, error: goldFetchError } = await supabase.from('resources')
             .select('amount').eq('user_id', userId).eq('resource_type', 'GOLD').single();
+        if (goldFetchError) throw goldFetchError;
 
-        await supabase.from('resources').update({ amount: parseFloat(goldRes.amount) + sellPrice })
+        if (!goldRes) {
+          return res.status(400).json({ success: false, message: "Resource GOLD tidak ditemukan." });
+        }
+
+        const { error: goldUpdateError } = await supabase.from('resources').update({ amount: parseFloat(goldRes.amount) + sellPrice })
             .eq('user_id', userId).eq('resource_type', 'GOLD');
+        if (goldUpdateError) throw goldUpdateError;
 
-        const { data: updated } = await supabase.from('resources').select('*').eq('user_id', userId);
+        const { data: updated, error: updatedError } = await supabase.from('resources').select('*').eq('user_id', userId);
+        if (updatedError) throw updatedError;
         return res.status(200).json({ success: true, data: { resources: updated } });
 
     } catch (err) {
@@ -127,7 +161,16 @@ const ResourceController = {
   getSnapshot: async (req, res) => {
     try {
       const { userId } = req.params;
-      const { data } = await supabase.from('resources').select('*').eq('user_id', userId);
+      if (!userId) {
+        return res.status(400).json({ success: false, message: "User ID diperlukan." });
+      }
+
+      if (req.user && req.user.id && String(req.user.id) !== String(userId)) {
+        return res.status(403).json({ success: false, message: "Akses snapshot user lain tidak diizinkan." });
+      }
+
+      const { data, error } = await supabase.from('resources').select('*').eq('user_id', userId);
+      if (error) throw error;
       return res.status(200).json({ success: true, data });
     } catch (error) {
       return res.status(500).json({ success: false, message: error.message });
@@ -136,8 +179,6 @@ const ResourceController = {
 
   getTodayNews: async (req, res) => {
     try {
-        const today = new Date().toISOString().split('T')[0];
-        
         // Mengambil semua berita yang active_date-nya hari ini atau yang status is_active-nya true
         const { data: newsList, error } = await supabase
             .from('news')

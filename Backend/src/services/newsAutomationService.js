@@ -1,6 +1,6 @@
 const newsFetcher = require('../utils/newsFetcher');
 const NewsModel = require('../models/newsModel');
-const supabase = require('../config/database');
+const { supabase } = require('../config/database');
 
 const newsAutomationService = {
     generateDailyEvent: async () => {
@@ -73,8 +73,16 @@ const newsAutomationService = {
             active_date: new Date().toISOString().split('T')[0]
         };
 
-        const { data, error } = await supabase.from('news').insert([newsData]);
-        if (error) console.error("Gagal menyimpan berita otomatis:", error);
+        const { data, error } = await supabase
+            .from('news')
+            .insert([newsData])
+            .select()
+            .single();
+        
+        if (error) {
+            console.error("Gagal menyimpan berita otomatis:", error);
+            return null;
+        }
         
         return data;
     }
